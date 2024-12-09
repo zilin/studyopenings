@@ -1,10 +1,10 @@
 import * as bodyParser from 'body-parser';
 import * as cors from 'cors';
+import { RequestHandler } from 'express';
 import { Express, Request, Response, static as exposeStatic } from 'express';
-import * as jwt from 'express-jwt';
+import { expressjwt, GetVerificationKey } from 'express-jwt';
 import jwtAuthz = require('express-jwt-authz');
-import { RequestHandler } from 'express-unless';
-import * as jwksRsa from 'jwks-rsa';
+import { expressJwtSecret } from 'jwks-rsa';
 import * as path from 'path';
 import { assert } from '../util/assert';
 import { Action } from './action';
@@ -139,13 +139,13 @@ export class EndpointRegistry {
 }
 
 const AUTH0_DOMAIN = 'studyopenings.auth0.com';
-const checkJwt = jwt({
-  secret: jwksRsa.expressJwtSecret({
+const checkJwt = expressjwt({
+  secret: expressJwtSecret({
     cache: true,
     rateLimit: true,
     jwksRequestsPerMinute: 5,
     jwksUri: `https://${AUTH0_DOMAIN}/.well-known/jwks.json`
-  }),
+  }) as GetVerificationKey,
   audience: 'studyopenings-api',
   issuer: `https://${AUTH0_DOMAIN}/`,
   algorithms: ['RS256']

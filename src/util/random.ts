@@ -1,5 +1,5 @@
-import cryptoRandomString = require('crypto-random-string');
+import { cryptoRandomStringAsync } from 'crypto-random-string';
 
-export function getRandomString(length: number): string {
-  return cryptoRandomString(length);
+export async function getRandomString(length: number): Promise<string> {
+  return await cryptoRandomStringAsync({length});
 }

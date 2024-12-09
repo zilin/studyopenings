@@ -1,4 +1,4 @@
-import { Collection, MongoClient, ObjectId } from 'mongodb';
+import { Collection, Db, MongoClient, ObjectId } from 'mongodb';
 import { Color } from '../protocol/color';
 import { Impression } from '../protocol/impression/impression';
 import { mergePreferences, Preference } from '../protocol/preference/preference';
@@ -11,21 +11,26 @@ const DATABASE_NAME = 'studyopenings';
 
 export class DatabaseWrapper {
   private mongoClient_: MongoClient | null;
+  private db_!: Db;
+  private mongoUrl_!: string;
 
   constructor() {
     this.mongoClient_ = null;
   }
 
-  connect(databasePath: string) {
+  async connect(databasePath: string): Promise<void> {
     if (this.mongoClient_) {
       console.error('Tried to connect to a database more than once!');
       return;
     }
     console.log('Using database path: ' + databasePath);
-    MongoClient.connect(
-        databasePath,
-        {useNewUrlParser: true},
-        this.onDatabaseConnect_.bind(this));
+    this.mongoUrl_ = databasePath;
+    try {
+      this.mongoClient_ = await MongoClient.connect(this.mongoUrl_);
+      this.db_ = this.mongoClient_.db(DATABASE_NAME);
+    } catch (err) {
+      console.error('Error connecting to database:', err);
+    }
   }
 
   deleteRepertoire(repertoireId: string, owner: string): Promise<void> {
@@ -143,17 +148,13 @@ export class DatabaseWrapper {
         .then(() => {});
   }
 
-  getMetadataListForOwner(owner: string): Promise<Metadata[]> {
-    return this.getRepertoireCollection_()
-        .then(collection => collection.find({owner}))
-        .then(docs => docs.toArray())
-        .then(docs =>
-            docs.map(doc => {
-              return {
-                id: doc._id,
-                name: doc.name
-              };
-            }));
+  async getMetadataListForOwner(owner: string): Promise<Metadata[]> {
+    const collection = await this.getRepertoireCollection_();
+    const docs = await collection.find({ owner }).toArray();
+    return docs.map(doc => ({
+      id: doc._id.toString(),
+      name: doc.name
+    }));
   }
 
   recordStatistics(
@@ -239,8 +240,15 @@ export class DatabaseWrapper {
         .then(doc => doc ? doc.preference : {});
   }
 
-  private getRepertoireCollection_(): Promise<Collection> {
-    return this.getCollection_(CollectionName.REPERTOIRES);
+  private async getRepertoireCollection_(): Promise<Collection> {
+    if (!this.db_) {
+      throw new Error('Database not initialized');
+    }
+    try {
+      return await this.db_.collection('repertoires');
+    } catch {
+      return await this.db_.createCollection('repertoires');
+    }
   }
 
   private getImpressionsCollection_(): Promise<Collection> {
@@ -255,34 +263,15 @@ export class DatabaseWrapper {
     return this.getCollection_(CollectionName.STATISTICS);
   }
 
-  private getCollection_(collectionName: CollectionName): Promise<Collection> {
-    return new Promise<Collection>(
-        (resolve, reject) => {
-          if (!this.mongoClient_) {
-            reject('Tried to operate on collection without connecting '
-                + 'to database.');
-            return;
-          }
-          this.mongoClient_
-              .db(DATABASE_NAME)
-              .collection(
-                  collectionName,
-                  (err, collection) => {
-                    if (err) {
-                      reject(err);
-                    } else {
-                      resolve(collection);
-                    }
-                  });
-        });
-  }
-
-  private onDatabaseConnect_(err: Error, mongoClient: MongoClient) {
-    if (err) {
-      console.error('Error connecting to database: ' + err);
-      return;
+  private async getCollection_(
+      collectionName: CollectionName): Promise<Collection> {
+    if (!this.mongoClient_) {
+      throw new Error(
+          'Tried to operate on collection without connecting to database.');
     }
-    this.mongoClient_ = mongoClient;
+    return this.mongoClient_
+        .db(DATABASE_NAME)
+        .collection(collectionName);
   }
 }
 

@@ -41,14 +41,14 @@ class Main {
         flags => this.withFlags_(flags));
   }
 
-  private static withFlags_(flags: EvaluatedFlags) {
+  private static async withFlags_(flags: EvaluatedFlags) {
     const authManager = new AuthManager(
         assert(document.getElementById('login')),
         assert(document.getElementById('logout')),
         assert(document.getElementById('hello')),
         document.getElementById('picture') as HTMLImageElement);
     const impressionSender = new DebouncingImpressionSender(
-        getRandomString(15) /* impressionSessionId */,
+        await getRandomString(15) /* impressionSessionId */,
         authManager,
         10000 /* debounceIntervalMs */);
     const server = new DelegatingServerWrapper(

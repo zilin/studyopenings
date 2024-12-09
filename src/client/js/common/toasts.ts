@@ -1,3 +1,5 @@
+import * as toastr from 'toastr';
+
 export class Toasts {
   static initialize() {
     toastr.options.showDuration = 300;

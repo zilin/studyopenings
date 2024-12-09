@@ -3,6 +3,16 @@ import { ConverterStatus } from './converterstatus';
 import { ParsedVariation, PgnParser } from './pgnparser';
 import { TreeModelPopulator } from './treemodelpopulator';
 
+interface ParserError {
+  message: string;
+  location?: {
+    start?: {
+      line: number;
+      column: number;
+    };
+  };
+}
+
 /**
  * A class which incrementally converts a PGN string into a Repertoire object.
  *
@@ -38,11 +48,12 @@ export class RepertoireIncrementalConverter {
     if (!this.parsedVariations_) {
       try {
         this.parsedVariations_ = PgnParser.parse(this.pgn_);
-      } catch (e) {
+      } catch (error: unknown) {
+        const e = error as ParserError;
         let message = e.message;
         if (e.location && e.location.start) {
           const l = e.location.start;
-          message = `At line ${l.line}, column ${l.column}: ${message}`;
+          message = `${message} (line ${l.line}, column ${l.column})`;
         }
         this.status_.addError(message);
       }
